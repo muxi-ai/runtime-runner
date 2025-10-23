@@ -107,4 +107,4 @@ MIT License - See LICENSE file
 
 - **Issues:** https://github.com/muxi-ai/runtime-runner/issues
 - **Documentation:** https://github.com/muxi-ai/server/docs
-- **Website:** https://muxi.ai
+- **Website:** https://muxi.org
