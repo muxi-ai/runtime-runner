@@ -1,8 +1,11 @@
-# MUXI Runtime Runner
+# MUXI Runtime Runner - Optimized Version
 # Docker wrapper for running Singularity SIF files on macOS/Windows
 # 
-# This image provides a Linux environment with Singularity, allowing SIF files
-# to run on platforms where Singularity isn't natively available.
+# Optimization techniques applied:
+# 1. Minimized dependencies (removed wget, use curl instead)
+# 2. More aggressive cleanup of package manager cache
+# 3. Removed documentation and locale files
+# 4. Combined operations to reduce layers
 #
 # Usage:
 #   docker run --rm --privileged \
@@ -11,8 +14,6 @@
 #     -p 8001:8001 \
 #     ghcr.io/muxi-ai/runtime-runner:latest \
 #     exec /sif/runtime.sif python app.py
-#
-# Note: Must be built for linux/amd64 platform to match SIF files
 
 FROM --platform=linux/amd64 ubuntu:22.04
 
@@ -24,25 +25,35 @@ LABEL org.opencontainers.image.licenses="MIT"
 # Avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies and Singularity
+# Install dependencies and Singularity in a single layer with aggressive cleanup
 RUN apt-get update && \
-    apt-get install -y \
-        wget \
+    # Install minimal dependencies
+    apt-get install -y --no-install-recommends \
         ca-certificates \
+        curl \
         squashfs-tools \
         fuse \
     && \
     # Download and install Singularity
     SINGULARITY_VERSION=3.11.4 && \
-    wget https://github.com/sylabs/singularity/releases/download/v${SINGULARITY_VERSION}/singularity-ce_${SINGULARITY_VERSION}-jammy_amd64.deb && \
-    apt-get install -y ./singularity-ce_${SINGULARITY_VERSION}-jammy_amd64.deb && \
-    rm singularity-ce_*.deb && \
-    # Clean up to reduce image size
+    curl -fsSL -o singularity.deb \
+        "https://github.com/sylabs/singularity/releases/download/v${SINGULARITY_VERSION}/singularity-ce_${SINGULARITY_VERSION}-jammy_amd64.deb" && \
+    apt-get install -y --no-install-recommends ./singularity.deb && \
+    rm singularity.deb && \
+    # Aggressive cleanup to reduce image size
+    apt-get purge -y --auto-remove curl && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Verify Singularity is installed
-RUN singularity --version
+    rm -rf \
+        /var/lib/apt/lists/* \
+        /tmp/* \
+        /var/tmp/* \
+        /usr/share/doc/* \
+        /usr/share/man/* \
+        /usr/share/locale/* \
+        /var/cache/apt/archives/* \
+        /var/log/* && \
+    # Verify Singularity is installed
+    singularity --version
 
 # Create mount points for SIF files and formation code
 RUN mkdir -p /sif /formation

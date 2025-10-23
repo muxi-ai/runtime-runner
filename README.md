@@ -75,7 +75,7 @@ docker run --rm runtime-runner:local --version
 - **Base:** Ubuntu 22.04
 - **Singularity:** 3.11.4
 - **Platform:** linux/amd64 (emulated on ARM Macs)
-- **Size:** ~120MB
+- **Size:** ~222MB (optimized from 266MB)
 
 ## Automatic Builds
 
