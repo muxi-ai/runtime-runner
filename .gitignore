@@ -1,0 +1,28 @@
+# Runtime Runner .gitignore
+
+# SIF files (large binary files)
+*.sif
+
+# Docker
+.dockerignore
+
+# Build artifacts
+*.deb
+*.rpm
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+test/output/
