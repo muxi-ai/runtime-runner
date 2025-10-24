@@ -2,6 +2,18 @@
 
 This document provides guidance for AI coding assistants working with the runtime-runner project.
 
+---
+
+## MUXI Ecosystem
+
+This repository is part of the larger MUXI ecosystem.
+
+**📋 Complete architectural overview:** See [MUXI-ARCHITECTURE.md](../MUXI-ARCHITECTURE.md) - explains how all 9 repositories fit together, dependencies, status, and roadmap.
+
+**🎯 This repo (runtime-runner):** Runtime executor that bridges server and runtime - spawns SIF containers and manages their lifecycle.
+
+---
+
 ## Project Overview
 
 **runtime-runner** is a Docker wrapper that enables running Singularity SIF files on macOS and Windows platforms. Since Singularity only works natively on Linux, this container provides the necessary Linux environment for MUXI Server to execute formations on non-Linux platforms.
