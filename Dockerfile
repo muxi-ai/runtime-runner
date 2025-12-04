@@ -1,11 +1,7 @@
-# MUXI Runtime Runner - Optimized Version
+# MUXI Runtime Runner - Multi-Architecture Support
 # Docker wrapper for running Singularity SIF files on macOS/Windows
-# 
-# Optimization techniques applied:
-# 1. Minimized dependencies (removed wget, use curl instead)
-# 2. More aggressive cleanup of package manager cache
-# 3. Removed documentation and locale files
-# 4. Combined operations to reduce layers
+#
+# Supports: linux/amd64 (Intel/AMD) and linux/arm64 (Apple Silicon, ARM servers)
 #
 # Usage:
 #   docker run --rm --privileged \
@@ -13,35 +9,27 @@
 #     -v ./formation:/formation \
 #     -p 8001:8001 \
 #     ghcr.io/muxi-ai/runtime-runner:latest \
-#     exec /sif/runtime.sif python app.py
+#     exec /sif/runtime.sif python -m muxi.utils.run_formation /formation/formation.yaml
 
-FROM --platform=linux/amd64 ubuntu:22.04
+FROM ubuntu:24.04
 
 LABEL maintainer="MUXI AI <hello@muxi.ai>"
 LABEL org.opencontainers.image.source="https://github.com/muxi-ai/runtime-runner"
-LABEL org.opencontainers.image.description="MUXI Runtime Runner with Singularity support"
+LABEL org.opencontainers.image.description="MUXI Runtime Runner with Singularity support (multi-arch: amd64/arm64)"
 LABEL org.opencontainers.image.licenses="MIT"
 
 # Avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install dependencies and Singularity in a single layer with aggressive cleanup
+# Install Singularity from Ubuntu's official repositories
+# This provides both amd64 and arm64 packages automatically
 RUN apt-get update && \
-    # Install minimal dependencies
     apt-get install -y --no-install-recommends \
-        ca-certificates \
-        curl \
+        singularity-container \
         squashfs-tools \
         fuse \
     && \
-    # Download and install Singularity
-    SINGULARITY_VERSION=3.11.4 && \
-    curl -fsSL -o singularity.deb \
-        "https://github.com/sylabs/singularity/releases/download/v${SINGULARITY_VERSION}/singularity-ce_${SINGULARITY_VERSION}-jammy_amd64.deb" && \
-    apt-get install -y --no-install-recommends ./singularity.deb && \
-    rm singularity.deb && \
     # Aggressive cleanup to reduce image size
-    apt-get purge -y --auto-remove curl && \
     apt-get clean && \
     rm -rf \
         /var/lib/apt/lists/* \
