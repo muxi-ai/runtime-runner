@@ -2,6 +2,13 @@
 
 Docker wrapper that enables running Singularity SIF files on macOS and Windows.
 
+> [!IMPORTANT]
+> ## MUXI Ecosystem
+>
+> This repository is part of the larger MUXI ecosystem.
+>
+> **📋 Complete architectural overview:** See [muxi/ARCHITECTURE.md](https://github.com/muxi-ai/muxi/blob/main/ARCHITECTURE.md) - explains how all 9 repositories fit together, dependencies, status, and roadmap.
+
 ## What is this?
 
 Singularity (the tool that runs SIF files) only works on Linux. This Docker image provides a Linux environment with Singularity installed, allowing MUXI Server to execute SIF files on non-Linux platforms.
