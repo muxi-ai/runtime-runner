@@ -17,16 +17,10 @@
 #     exec --bind /opt/muxi-tools /sif/runtime.sif \
 #     bash -c 'export PATH=/opt/muxi-tools/bin:$PATH && python -m muxi.utils.run_formation /formation/formation.yaml'
 
-FROM ubuntu:24.04
-
-LABEL maintainer="MUXI AI <hello@muxi.ai>"
-LABEL org.opencontainers.image.source="https://github.com/muxi-ai/runtime-runner"
-LABEL org.opencontainers.image.description="MUXI Runtime Runner with Singularity support (multi-arch: amd64/arm64)"
-LABEL org.opencontainers.image.licenses="MIT"
+FROM ubuntu:24.04 AS muxi-tools-builder
 
 # Avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
-ENV SINGULARITY_BINDPATH=/opt/hf-cache:/opt/hf-cache
 
 # ============================================================================
 # Install system packages (used to populate /opt/muxi-tools)
@@ -34,10 +28,6 @@ ENV SINGULARITY_BINDPATH=/opt/hf-cache:/opt/hf-cache
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        # --- Singularity runtime ---
-        singularity-container \
-        squashfs-tools \
-        fuse \
         # --- Tools to install into /opt/muxi-tools ---
         curl \
         wget \
@@ -54,6 +44,7 @@ RUN apt-get update && \
         libmagic1 \
         pandoc \
         graphviz \
+        python3 \
         # --- Fonts (required for matplotlib chart rendering) ---
         fonts-dejavu-core \
         fontconfig \
@@ -99,12 +90,23 @@ BIN=$(which "$1" 2>/dev/null || echo "$1")\n\
 cp "$BIN" /opt/muxi-tools/bin/\n\
 # Copy shared libs, but skip core glibc/system libs that the SIF already has.\n\
 # Mixing glibc versions causes symbol errors.\n\
-SKIP="libc.so|libm.so|libdl.so|librt.so|libpthread.so|libnsl.so|libutil.so|libresolv.so|libnss_|libcrypt.so|ld-linux|libmvec.so|libBrokenLocale.so|libanl.so|libthread_db.so"\n\
-ldd "$BIN" 2>/dev/null | grep "=>" | awk "{print \$3}" | while read lib; do\n\
-  base=$(basename "$lib")\n\
-  echo "$base" | grep -qE "$SKIP" && continue\n\
-  [ -f "$lib" ] && cp -n "$lib" /opt/muxi-tools/lib/ 2>/dev/null || true\n\
+SKIP="^(libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libnsl\.so|libutil\.so|libresolv\.so|libnss_.*|libcrypt\.so|ld-linux|libmvec\.so|libBrokenLocale\.so|libanl\.so|libthread_db\.so)"\n\
+QUEUE=$(mktemp)\n\
+printf "%s\n" "$BIN" > "$QUEUE"\n\
+INDEX=1\n\
+while TARGET=$(sed -n "${INDEX}p" "$QUEUE"); [ -n "$TARGET" ]; do\n\
+  ldd "$TARGET" 2>/dev/null | grep "=>" | awk "{print \$3}" | while read lib; do\n\
+    base=$(basename "$lib")\n\
+    echo "$base" | grep -qE "$SKIP" && continue\n\
+    [ -f "$lib" ] || continue\n\
+    if ! grep -Fxq "$lib" "$QUEUE"; then\n\
+      cp -n "$lib" /opt/muxi-tools/lib/ 2>/dev/null || true\n\
+      printf "%s\n" "$lib" >> "$QUEUE"\n\
+    fi\n\
+  done\n\
+  INDEX=$((INDEX + 1))\n\
 done\n\
+rm -f "$QUEUE"\n\
 echo "OK: $1"' > /tmp/stage-tool.sh && chmod +x /tmp/stage-tool.sh
 
 RUN mkdir -p /opt/muxi-tools/bin /opt/muxi-tools/lib \
@@ -140,22 +142,58 @@ RUN mkdir -p /opt/muxi-tools/bin /opt/muxi-tools/lib \
     cp -r /usr/share/fonts/truetype/dejavu/* /opt/muxi-tools/share/fonts/ 2>/dev/null || true && \
     # ── CA certificates ──
     cp /etc/ssl/certs/ca-certificates.crt /opt/muxi-tools/share/certs/ 2>/dev/null || true && \
-    # ── Linker cache for our lib dir ──
-    echo "/opt/muxi-tools/lib" > /etc/ld.so.conf.d/muxi-tools.conf && ldconfig && \
     # ── Cleanup ──
     rm -f /tmp/stage-tool.sh && \
     echo "muxi-tools directory built successfully"
 
 # ============================================================================
-# Verify installations
+# Runtime image
 # ============================================================================
 
-RUN singularity --version && \
+FROM ubuntu:24.04
+
+LABEL maintainer="MUXI AI <hello@muxi.ai>"
+LABEL org.opencontainers.image.source="https://github.com/muxi-ai/runtime-runner"
+LABEL org.opencontainers.image.description="MUXI Runtime Runner with Singularity support (multi-arch: amd64/arm64)"
+LABEL org.opencontainers.image.licenses="MIT"
+
+# Avoid interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+ENV SINGULARITY_BINDPATH=/opt/hf-cache:/opt/hf-cache
+ENV PATH=/opt/muxi-tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        singularity-container \
+        squashfs-tools \
+        fuse \
+        ca-certificates \
+    && \
+    apt-get clean && \
+    rm -rf \
+        /var/lib/apt/lists/* \
+        /tmp/* \
+        /var/tmp/* \
+        /usr/share/doc/* \
+        /usr/share/man/* \
+        /usr/share/locale/* \
+        /var/cache/apt/archives/* \
+        /var/log/*
+
+COPY --from=muxi-tools-builder /opt/muxi-tools /opt/muxi-tools
+
+# ============================================================================
+# Verify runtime + staged tool installations
+# ============================================================================
+
+RUN echo "/opt/muxi-tools/lib" > /etc/ld.so.conf.d/muxi-tools.conf && \
+    ldconfig && \
+    singularity --version && \
     /opt/muxi-tools/bin/node --version && \
     /opt/muxi-tools/bin/npx --version && \
     /opt/muxi-tools/bin/git --version && \
-    /opt/muxi-tools/bin/curl --version 2>&1 | head -1 && \
-    /opt/muxi-tools/bin/ffmpeg -version 2>&1 | head -1 && \
+    /opt/muxi-tools/bin/curl --version >/dev/null && \
+    /opt/muxi-tools/bin/ffmpeg -version >/dev/null && \
     /opt/muxi-tools/bin/python3 --version && \
     echo "All tools verified"
 

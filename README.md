@@ -66,7 +66,7 @@ docker run --rm runtime-runner:local --version
 
 - **Base:** Ubuntu 24.04
 - **Platforms:** linux/amd64, linux/arm64
-- **Size:** ~222MB
+- **Size:** ~280MB compressed
 
 ## Registry
 
