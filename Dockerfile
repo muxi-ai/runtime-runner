@@ -26,6 +26,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 # Avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
+ENV SINGULARITY_BINDPATH=/opt/hf-cache:/opt/hf-cache
 
 # ============================================================================
 # Install system packages (used to populate /opt/muxi-tools)
@@ -158,8 +159,8 @@ RUN singularity --version && \
     /opt/muxi-tools/bin/python3 --version && \
     echo "All tools verified"
 
-# Create mount points for SIF files and formation code
-RUN mkdir -p /sif /formation
+# Create mount points for SIF files, formation code, and HF cache passthrough
+RUN mkdir -p /sif /formation /opt/hf-cache
 
 # Set working directory
 WORKDIR /formation
