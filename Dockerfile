@@ -159,7 +159,14 @@ LABEL org.opencontainers.image.licenses="MIT"
 
 # Avoid interactive prompts during installation
 ENV DEBIAN_FRONTEND=noninteractive
-ENV SINGULARITY_BINDPATH=/opt/hf-cache:/opt/hf-cache
+# NOTE: SINGULARITY_BINDPATH was previously set to /opt/hf-cache:/opt/hf-cache
+# here so the SIF would auto-bind the HF cache without callers having to think
+# about it. That broke the moment muxi-server learned to pass an explicit
+# `--bind /opt/hf-cache` (which it should — explicit binds are the right
+# pattern); Apptainer detects the duplicate and emits a confusing
+# "destination is already in the mount point list" warning. The cache still
+# works, but the warning is noisy and obscures real mount issues. Drop the
+# implicit bind and let the caller (muxi-server) own the bind list.
 ENV PATH=/opt/muxi-tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 RUN apt-get update && \
